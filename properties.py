@@ -4,6 +4,8 @@ import pylab as pl
 import csv
 from collections import Counter
 pl.ion()
+from ast import literal_eval
+from geopy.distance import VincentyDistance as vincenty
 
 data=[]
 with open('Historic_Secured_Property_Tax_Rolls.csv') as f:
@@ -127,3 +129,154 @@ print intercept#-85.1777429706
 pl.figure()
 pl.plot(mean_land_values.keys(),[item[0] for item in mean_land_values.values()],'.')
 pl.plot(mean_land_values.keys(),np.exp(intercept)*np.exp(slope*np.array(mean_land_values.keys())),'-')
+
+#SF_coord=(‎37.773972,‎-122.431297)
+
+neighborhood_list=neighborhood_dict.keys()
+neighborhood_list.remove('')
+neighborhood_locations={}
+neigh_location_means={}
+for neigh in neighborhood_list:
+    location_list=[]
+    for row in neighborhood_dict[neigh]:
+        try:
+            location=row[-1]
+            if location!='':
+                location=list(literal_eval(location))
+                if location[0]>37 and location[0]<38 and location[1]<-122 and location[1]>-123:
+                    location_list.append(location)
+                else:
+                    print location
+            else:
+                pass
+        except:
+            print row
+    location_list=np.array(location_list)
+    neighborhood_locations[neigh]=location_list
+    mean_x=np.mean(location_list[:,0])
+    mean_y=np.mean(location_list[:,1])
+    std_x=np.std(location_list[:,0])
+    std_y=np.std(location_list[:,1])
+    neigh_location_means[neigh]=[mean_x,mean_y,std_x,std_y]
+
+neigh_areas={}
+
+for neigh in neighborhood_list:
+    neighborhood_coords=neigh_location_means[neigh]
+    neighborhood_center=(neighborhood_coords[0],neighborhood_coords[1])
+    fake_point_x=(neighborhood_coords[0]+neighborhood_coords[2],neighborhood_coords[1])
+    fake_point_y=(neighborhood_coords[0],neighborhood_coords[1]+neighborhood_coords[3])
+    a=vincenty(neighborhood_center, fake_point_x).km
+    b=vincenty(neighborhood_center, fake_point_y).km
+    area=np.pi*a*b
+    neigh_areas[neigh]=area
+    
+total_area=np.sum(neigh_areas.values())
+print total_area#31.9950435419 square km
+print np.max(neigh_areas.values())#3.0345566135
+
+#get only first of each assessments for each property:
+first_assessments=[]
+unknown_year=[]
+for prop_i in property_dict:
+    prop_assessments=property_dict[prop_i]
+    if prop_i=='7085015': #this property has a messed up row where year is an empty string which is probably year 2011 (the only one missing)
+        for row in prop_assessments:
+            if row[0]=='':
+                row[0]='2011'
+    years_i=[int(row[0]) for row in prop_assessments]
+    first_year=np.argmin(years_i)
+    first_assessment_i=prop_assessments[first_year]
+    first_assessments.append(first_assessment_i)
+
+units_by_year={}
+for row in first_assessments:
+    built_year=row[8]
+    if built_year!='':
+        built_year=int(built_year)
+        num_units=int(row[13])
+        if num_units>0:
+            if built_year in units_by_year:
+                units_by_year[built_year]=units_by_year[built_year]+[num_units]
+            else:
+               units_by_year[built_year]=[num_units] 
+
+year_list=np.sort(units_by_year.keys())
+before_1950=[]
+after_1950=[]
+for year in units_by_year:
+    if 1776<=year<1950:
+        before_1950=before_1950+units_by_year[year]
+    elif 1950<=year<=2015:
+        after_1950=after_1950+units_by_year[year]
+
+units_before=np.mean(before_1950)#2.1199384930804714
+units_after=np.mean(after_1950)#2.5397953504302779
+
+print units_after-units_before#0.41985685735
+
+zip_dict={}
+for row in latest_assessments:
+    zip_code=row[39]
+    if zip_code in zip_dict:
+        zip_dict[zip_code]=zip_dict[zip_code]+[row]
+    else:
+        zip_dict[zip_code]=[row]
+
+zip_units={}
+zip_ratios={}
+for zip_code in zip_dict:
+    zip_list=[]
+    for row in zip_dict[zip_code]:
+        bedrooms=row[10]
+        units=row[13]
+        if bedrooms!='' and units!='' and bedrooms!='0' and units!='0':
+            bedrooms=int(bedrooms)
+            units=int(units)
+            zip_list.append([units,bedrooms])
+    if zip_list==[]:
+        print zip_code
+    else:
+        zip_ray=np.array(zip_list)
+        zip_units[zip_code]=zip_ray
+        mean_units=np.mean(zip_ray[:,0])
+        mean_bedrooms=np.mean(zip_ray[:,1])
+        ratio=mean_bedrooms/mean_units
+        zip_ratios[zip_code]=ratio
+
+del zip_ratios['']
+
+max_zip = zip_ratios.keys()[np.argmax(zip_ratios.values())]#
+print zip_ratios[max_zip],max_zip#3.80756013746 94116
+
+zip_properties={}
+area_ratios={}
+for zip_code in zip_dict:
+    property_list=[]
+    lot_list=[]
+    area_list=[]
+    for row in zip_dict[zip_code]:
+        property_area=row[19]
+        lot_area=row[21]
+        if lot_area!='' and property_area!='' and lot_area!='0' and property_area!='0':
+            property_area=float(property_area)
+            lot_area=float(lot_area)
+            property_list.append(property_area)
+            lot_list.append(lot_area)
+            area_list.append([property_area,lot_area])
+    if area_list==[]:
+        print zip_code
+    else:
+        zip_properties[zip_code]=zip_list
+        mean_property_area=np.mean(property_list)
+        mean_lot_area=np.mean(lot_list)
+        ratio=mean_property_area/mean_lot_area
+        print mean_property_area,mean_lot_area,ratio
+        area_ratios[zip_code]=ratio
+
+del area_ratios['']
+
+max_zip = area_ratios.keys()[np.argmax(area_ratios.values())]#
+print area_ratios[max_zip],max_zip#13.5872646159 94104
+
+
