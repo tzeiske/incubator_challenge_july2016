@@ -20,7 +20,7 @@ def mod_sum(T,mod_i):
 
 #sample 1M times
 T=1024 #number of jumps
-mod_i=667 #modulo of interest
+mod_i=29 #modulo of interest
 
 modsums=[]
 for i in range(1000000):

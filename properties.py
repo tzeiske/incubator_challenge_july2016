@@ -74,7 +74,7 @@ for row in latest_assessments:
     ass_list.append(row)
     neighborhood_dict[neigh]=ass_list
 
-#neighborhood code '047' not present at all in latest_assessments but present in original data. Must have changed to another code later on. Looking at some examples it probably is the same as 04T and was just mis typed at digitization
+#neighborhood code '047' not present at all in latest_assessments but present in original data. Must have changed to another code later on. Looking at some examples it probably is the same as 04T and was just mistyped at digitization
 
 neighborhood_improvements={}
 average_improvements={}
@@ -83,10 +83,14 @@ for neigh in neighborhood_dict:
     neighborhood_improvements[neigh]=improvement_list
     average_improvements[neigh]=np.mean(improvement_list)
 
-print np.min(average_improvements.values())#least improvement:143839.184557
-print np.max(average_improvements.values())#least improvement:15559895.9167
-diff=15559895.9167-143839.184557
-print diff #15416056.7321
+del average_improvements['']
+
+min_imp=np.min(average_improvements.values())
+max_imp=np.max(average_improvements.values())
+print min_imp#least improvement:143839.184557
+print max_imp#least improvement:5229619.56759
+diff=max_imp-min_imp
+print diff #5085780.38303
 
 #growth rate of land values: P=P_0*exp(rt), in in years --> figure out r. ln(P) = ln(P_0)+r*t--> use linear regression of ln(P) against t!
 #linear regression for each property and then average or average property value over all properties for each year and then linear regression using the STDev as weight??
@@ -109,7 +113,7 @@ for year in year_dict:
     for row in year_dict[year]:
         if row[37]!='':
             land_val=float(row[37])
-            if land_val!=0 and land_val!='':
+            if land_val!=0:
                 land_values.append(land_val)
     yearly_land_values[year]=land_values
     mean_land_values[year]=[np.mean(land_values),np.std(land_values)]
